@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>순창초 저녁늘봄 기관 지도</title>
   <style>
-    html{background:#f5f6fa;min-height:100%;}
+    html,body{background:#f5f6fa;min-height:100%;margin:0;padding:0;}
     :root {
       --bg:#f5f6fa;--surface:#ffffff;--text:#2d3436;--text-sub:#636e72;
       --border:#e9ecef;--blue-deep:#0984e3;--green-deep:#00b894;
@@ -21,7 +21,7 @@
     .filter-bar{display:flex;gap:6px;margin-bottom:14px;justify-content:center;}
     .btn-filter{padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text-sub);font-weight:700;font-size:0.82rem;cursor:pointer;transition:0.15s;}
     .btn-filter.active{background:var(--teal-deep);color:white;border-color:var(--teal-deep);}
-    .map-wrap{width:100%;height:420px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);margin-bottom:16px;box-shadow:var(--shadow);}
+    .map-wrap{width:100%;height:420px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);margin-bottom:16px;box-shadow:var(--shadow);position:relative;}
     .org-count{font-size:0.82rem;color:var(--text-sub);margin-bottom:10px;}
     .org-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;box-shadow:var(--shadow);cursor:pointer;transition:transform 0.1s;position:relative;overflow:hidden;}
     .org-card:active{transform:scale(0.98);}
@@ -41,6 +41,7 @@
     @keyframes spin{to{transform:rotate(360deg);}}
     .load-text{font-size:0.88rem;color:var(--text-sub);font-weight:600;}
     .error-msg{text-align:center;padding:30px;color:var(--orange-deep);font-weight:600;}
+    .debug-info{font-size:0.7rem;color:#aaa;text-align:center;margin-top:20px;line-height:1.6;}
   </style>
 </head>
 <body>
@@ -60,24 +61,19 @@
     </div>
   </div>
   <div id="org-list"></div>
+  <div class="debug-info" id="debug-info"></div>
 </div>
 
 <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=292ea33281f52f28bb790bd726a77ffb&libraries=services"></script>
 <script>
-// ==========================================
-// 설정 — 아래 URL을 본인의 GAS 웹앱 URL로 변경하세요
-// ==========================================
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbyTLRphhpEtXFRXbPGTEqFtp-MGCm0LDoiIWzRC_zc46ikzqDHgTEpUe-8sW1VmuDl_/exec';
-var MAIN_APP_URL = GAS_URL; // 기관 상세 이동용
 
 var mapOrgs = [];
 var kakaoMap = null;
 var allMarkers = [];
 var currentFilter = '전체';
+var currentOpenInfo = null;
 
-// ==========================================
-// 초기화
-// ==========================================
 document.addEventListener('DOMContentLoaded', function() {
   renderFilters();
   loadMapData();
@@ -88,6 +84,11 @@ function loadMapData() {
     .then(function(res) { return res.json(); })
     .then(function(data) {
       mapOrgs = data || [];
+      // 디버그: 데이터 확인
+      var types = {};
+      mapOrgs.forEach(function(o) { types[o.type] = (types[o.type] || 0) + 1; });
+      document.getElementById('debug-info').innerText =
+        '데이터: ' + mapOrgs.length + '곳 | ' + JSON.stringify(types);
       initMap();
       renderOrgList();
     })
@@ -117,13 +118,24 @@ function renderFilters() {
 function setFilter(f) {
   currentFilter = f;
   renderFilters();
-  updateMarkers();
+  // 기존 마커 전부 제거 후 다시 배치
+  allMarkers.forEach(function(m) {
+    m.info.close();
+    m.marker.setMap(null);
+  });
+  allMarkers = [];
+  currentOpenInfo = null;
+  placeMarkers();
   renderOrgList();
 }
 
 function getFiltered() {
   return mapOrgs.filter(function(o) {
-    return currentFilter === '전체' || o.type === currentFilter;
+    if (currentFilter === '전체') return true;
+    // 공백 제거하여 비교 (데이터에 공백이 있을 수 있음)
+    var orgType = String(o.type || '').trim();
+    var filterType = String(currentFilter).trim();
+    return orgType === filterType;
   });
 }
 
@@ -144,13 +156,20 @@ function initMap() {
   });
   schoolInfo.open(kakaoMap, schoolMarker);
 
+  // 지도 클릭 시 열린 InfoWindow 닫기
+  kakao.maps.event.addListener(kakaoMap, 'click', function() {
+    closeAllInfoWindows();
+  });
+
   placeMarkers();
 }
 
-function placeMarkers() {
-  allMarkers.forEach(function(m) { m.marker.setMap(null); });
-  allMarkers = [];
+function closeAllInfoWindows() {
+  allMarkers.forEach(function(m) { m.info.close(); });
+  currentOpenInfo = null;
+}
 
+function placeMarkers() {
   var geocoder = new kakao.maps.services.Geocoder();
   var filtered = getFiltered();
 
@@ -160,7 +179,7 @@ function placeMarkers() {
     geocoder.addressSearch(org.address, function(result, status) {
       if (status === kakao.maps.services.Status.OK) {
         var pos = new kakao.maps.LatLng(result[0].y, result[0].x);
-        var color = org.type === '학교밖 늘봄' ? '#0984e3' : '#00b894';
+        var color = String(org.type || '').trim() === '학교밖 늘봄' ? '#0984e3' : '#00b894';
 
         var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42">' +
           '<path d="M15 0C6.7 0 0 6.7 0 15c0 11.3 15 27 15 27s15-15.7 15-27C30 6.7 23.3 0 15 0z" fill="' + color + '"/>' +
@@ -175,43 +194,49 @@ function placeMarkers() {
           position: pos, map: kakaoMap, image: markerImage
         });
 
-        var icon = org.type === '학교밖 늘봄' ? '📚' : '🏠';
-        var typeLabel = org.type === '학교밖 늘봄' ? '학교밖 늘봄' : '지역사회 돌봄';
+        var icon = String(org.type || '').trim() === '학교밖 늘봄' ? '📚' : '🏠';
+        var typeLabel = String(org.type || '').trim() === '학교밖 늘봄' ? '학교밖 늘봄' : '지역사회 돌봄';
         var openBadge = org.openCount > 0
           ? '<div style="color:#00b894;font-weight:700;">🟢 모집중 ' + org.openCount + '개</div>' : '';
         var transportLine = org.transport === '있음' ? '<div>🚌 통학지원</div>' : '';
 
-        var infoHtml =
-          '<div style="padding:12px 16px;font-size:0.82rem;line-height:1.7;width:220px;">' +
-          '<div style="font-weight:800;font-size:0.92rem;margin-bottom:4px;">' + icon + ' ' + esc(org.name) + '</div>' +
-          '<div style="color:#636e72;">' + typeLabel + ' · 프로그램 ' + org.progCount + '개</div>' +
+        // 상세보기: GAS 웹앱의 학부모 화면으로 이동하여 기관 상세를 보여주기 위해
+        // ?org= 파라미터 사용 (hash 대신)
+        var detailUrl = GAS_URL;
+
+        var infoContent = document.createElement('div');
+        infoContent.style.cssText = 'padding:14px 16px;font-size:0.82rem;line-height:1.7;min-width:200px;';
+        infoContent.innerHTML =
+          '<div style="font-weight:800;font-size:0.95rem;margin-bottom:6px;">' + icon + ' ' + esc(org.name) + '</div>' +
+          '<div style="color:#636e72;margin-bottom:4px;">' + typeLabel + ' · 프로그램 ' + org.progCount + '개</div>' +
           openBadge + transportLine +
-          '<div style="margin-top:8px;">' +
-          '<a href="' + MAIN_APP_URL + '#org=' + encodeURIComponent(org.name) + '" target="_blank" ' +
-          'style="color:#0984e3;font-weight:700;text-decoration:none;">' + esc(org.name) + ' 상세보기 ›</a>' +
-          '</div></div>';
+          '<div style="margin-top:10px;text-align:center;">' +
+          '<a href="' + detailUrl + '" target="_blank" ' +
+          'style="display:inline-block;padding:8px 16px;background:#0984e3;color:white;border-radius:8px;font-weight:700;text-decoration:none;font-size:0.82rem;">' +
+          esc(org.name) + ' 상세보기</a></div>';
 
-        var infoWindow = new kakao.maps.InfoWindow({ content: infoHtml });
-
-        var isOpen = false;
-        kakao.maps.event.addListener(marker, 'click', function() {
-          allMarkers.forEach(function(m) { m.info.close(); m.isOpen = false; });
-          if (!isOpen) {
-            infoWindow.open(kakaoMap, marker);
-            isOpen = true;
-          } else {
-            isOpen = false;
-          }
+        var infoWindow = new kakao.maps.InfoWindow({
+          content: infoContent,
+          removable: true
         });
 
-        allMarkers.push({ marker: marker, info: infoWindow, org: org, isOpen: false });
+        kakao.maps.event.addListener(marker, 'click', function() {
+          // 같은 마커 다시 클릭 → 닫기
+          if (currentOpenInfo === infoWindow) {
+            infoWindow.close();
+            currentOpenInfo = null;
+            return;
+          }
+          // 다른 마커 클릭 → 기존 닫고 새로 열기
+          closeAllInfoWindows();
+          infoWindow.open(kakaoMap, marker);
+          currentOpenInfo = infoWindow;
+        });
+
+        allMarkers.push({ marker: marker, info: infoWindow, org: org });
       }
     });
   });
-}
-
-function updateMarkers() {
-  placeMarkers();
 }
 
 // ==========================================
@@ -223,10 +248,11 @@ function renderOrgList() {
   var h = '<div class="org-count">📍 총 ' + filtered.length + '곳</div>';
 
   filtered.forEach(function(o) {
-    var icon = o.type === '학교밖 늘봄' ? '📚' : '🏠';
-    var typeClass = o.type === '학교밖 늘봄' ? 'school' : 'community';
-    var typeBadge = o.type === '학교밖 늘봄' ? 'badge-blue' : 'badge-green';
-    var typeLabel = o.type === '학교밖 늘봄' ? '학교밖 늘봄' : '지역사회 돌봄';
+    var orgType = String(o.type || '').trim();
+    var icon = orgType === '학교밖 늘봄' ? '📚' : '🏠';
+    var typeClass = orgType === '학교밖 늘봄' ? 'school' : 'community';
+    var typeBadge = orgType === '학교밖 늘봄' ? 'badge-blue' : 'badge-green';
+    var typeLabel = orgType === '학교밖 늘봄' ? '학교밖 늘봄' : '지역사회 돌봄';
 
     h += '<div class="org-card ' + typeClass + '" onclick="focusOrg(\'' + esc(o.name).replace(/'/g, "\\'") + '\')">';
     h += '<div class="org-name">' + icon + ' ' + esc(o.name) + '</div>';
@@ -249,8 +275,9 @@ function focusOrg(name) {
   if (found) {
     kakaoMap.setCenter(found.marker.getPosition());
     kakaoMap.setLevel(3);
-    allMarkers.forEach(function(m) { m.info.close(); });
+    closeAllInfoWindows();
     found.info.open(kakaoMap, found.marker);
+    currentOpenInfo = found.info;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
