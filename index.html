@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>순창초 저녁늘봄 기관 지도</title>
   <style>
+    html{background:#f5f6fa;min-height:100%;}
     :root {
       --bg:#f5f6fa;--surface:#ffffff;--text:#2d3436;--text-sub:#636e72;
       --border:#e9ecef;--blue-deep:#0984e3;--green-deep:#00b894;
@@ -102,8 +103,8 @@ function loadMapData() {
 function renderFilters() {
   var filters = [
     { value: '전체', label: '전체' },
-    { value: '학교밖 늘봄', label: '📚 늘봄교육' },
-    { value: '지역사회 돌봄', label: '🏠 돌봄' }
+    { value: '학교밖 늘봄', label: '📚 학교밖 늘봄' },
+    { value: '지역사회 돌봄', label: '🏠 지역사회 돌봄' }
   ];
   var h = '';
   filters.forEach(function(f) {
@@ -175,7 +176,7 @@ function placeMarkers() {
         });
 
         var icon = org.type === '학교밖 늘봄' ? '📚' : '🏠';
-        var typeLabel = org.type === '학교밖 늘봄' ? '늘봄교육' : '돌봄';
+        var typeLabel = org.type === '학교밖 늘봄' ? '학교밖 늘봄' : '지역사회 돌봄';
         var openBadge = org.openCount > 0
           ? '<div style="color:#00b894;font-weight:700;">🟢 모집중 ' + org.openCount + '개</div>' : '';
         var transportLine = org.transport === '있음' ? '<div>🚌 통학지원</div>' : '';
@@ -186,8 +187,8 @@ function placeMarkers() {
           '<div style="color:#636e72;">' + typeLabel + ' · 프로그램 ' + org.progCount + '개</div>' +
           openBadge + transportLine +
           '<div style="margin-top:8px;">' +
-          '<a href="' + MAIN_APP_URL + '" target="_blank" ' +
-          'style="color:#0984e3;font-weight:700;text-decoration:none;">메인으로 이동 ›</a>' +
+          '<a href="' + MAIN_APP_URL + '#org=' + encodeURIComponent(org.name) + '" target="_blank" ' +
+          'style="color:#0984e3;font-weight:700;text-decoration:none;">' + esc(org.name) + ' 상세보기 ›</a>' +
           '</div></div>';
 
         var infoWindow = new kakao.maps.InfoWindow({ content: infoHtml });
@@ -219,7 +220,7 @@ function renderOrgList() {
     var icon = o.type === '학교밖 늘봄' ? '📚' : '🏠';
     var typeClass = o.type === '학교밖 늘봄' ? 'school' : 'community';
     var typeBadge = o.type === '학교밖 늘봄' ? 'badge-blue' : 'badge-green';
-    var typeLabel = o.type === '학교밖 늘봄' ? '늘봄교육' : '돌봄';
+    var typeLabel = o.type === '학교밖 늘봄' ? '학교밖 늘봄' : '지역사회 돌봄';
 
     h += '<div class="org-card ' + typeClass + '" onclick="focusOrg(\'' + esc(o.name).replace(/'/g, "\\'") + '\')">';
     h += '<div class="org-name">' + icon + ' ' + esc(o.name) + '</div>';
