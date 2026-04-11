@@ -192,27 +192,23 @@ function placeMarkers(){
         var tl=isSchool?'학교밖 늘봄':'지역사회 돌봄';
         var ob=org.openCount>0?'<div style="color:#00b894;font-weight:700;font-size:0.78rem;">🟢 모집중 '+org.openCount+'개</div>':'';
 
-        var iwDiv=document.createElement('div');
-        iwDiv.style.cssText='padding:10px 14px;font-size:0.82rem;line-height:1.6;min-width:160px;';
-        iwDiv.innerHTML=
-          '<div style="font-weight:800;margin-bottom:2px;">'+icon+' '+esc(org.name)+'</div>'+
-          '<div style="color:#636e72;font-size:0.78rem;">'+tl+' · '+org.progCount+'개</div>'+ob;
+        var iwContent='<div style="padding:8px 12px;font-size:0.82rem;line-height:1.5;white-space:nowrap;">'+
+          '<div style="font-weight:800;">'+icon+' '+esc(org.name)+'</div>'+
+          '<div style="color:#636e72;font-size:0.78rem;">'+tl+' · '+org.progCount+'개</div>'+
+          '</div>';
 
-        var detailBtn=document.createElement('div');
-        detailBtn.style.cssText='margin-top:8px;text-align:center;padding:8px;background:#0984e3;color:white;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.82rem;';
-        detailBtn.innerText=esc(org.name)+' 상세보기 ▼';
-        detailBtn.addEventListener('click',function(){
-          showDetail(org.name);
-        });
-        iwDiv.appendChild(detailBtn);
-
-        var iw=new kakao.maps.InfoWindow({content:iwDiv});
+        var iw=new kakao.maps.InfoWindow({content:iwContent});
 
         kakao.maps.event.addListener(marker,'click',function(){
-          if(currentOpenInfo===iw){iw.close();currentOpenInfo=null;return;}
+          if(currentOpenInfo===iw){
+            iw.close();
+            currentOpenInfo=null;
+            return;
+          }
           closeAllInfo();
           iw.open(kakaoMap,marker);
           currentOpenInfo=iw;
+          showDetail(org.name);
         });
 
         allMarkers.push({marker:marker,info:iw,org:org});
