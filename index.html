@@ -182,7 +182,7 @@ function placeMarkers() {
         var transportLine = org.transport === '있음' ? '<div>🚌 통학지원</div>' : '';
 
         var infoHtml =
-          '<div style="padding:12px 16px;font-size:0.82rem;line-height:1.7;min-width:180px;max-width:240px;">' +
+          '<div style="padding:12px 16px;font-size:0.82rem;line-height:1.7;width:220px;">' +
           '<div style="font-weight:800;font-size:0.92rem;margin-bottom:4px;">' + icon + ' ' + esc(org.name) + '</div>' +
           '<div style="color:#636e72;">' + typeLabel + ' · 프로그램 ' + org.progCount + '개</div>' +
           openBadge + transportLine +
@@ -193,12 +193,18 @@ function placeMarkers() {
 
         var infoWindow = new kakao.maps.InfoWindow({ content: infoHtml });
 
+        var isOpen = false;
         kakao.maps.event.addListener(marker, 'click', function() {
-          allMarkers.forEach(function(m) { m.info.close(); });
-          infoWindow.open(kakaoMap, marker);
+          allMarkers.forEach(function(m) { m.info.close(); m.isOpen = false; });
+          if (!isOpen) {
+            infoWindow.open(kakaoMap, marker);
+            isOpen = true;
+          } else {
+            isOpen = false;
+          }
         });
 
-        allMarkers.push({ marker: marker, info: infoWindow, org: org });
+        allMarkers.push({ marker: marker, info: infoWindow, org: org, isOpen: false });
       }
     });
   });
