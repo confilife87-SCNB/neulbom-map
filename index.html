@@ -62,6 +62,9 @@
     .btn-contact:active{opacity:0.8;}
     .btn-contact.call{background:linear-gradient(135deg,#0984e3,#74b9ff);color:white;}
     .btn-contact.sms{background:var(--bg);color:var(--text);border:1px solid var(--border);}
+    .btn-route{display:block;text-align:center;padding:10px 12px;border-radius:10px;background:rgba(0,206,201,0.08);border:1px solid rgba(0,206,201,0.2);color:var(--teal-deep);font-weight:700;font-size:0.85rem;text-decoration:none;margin-top:10px;}
+    .route-note{font-size:0.8rem;color:var(--text-sub);line-height:1.6;margin-top:8px;}
+    .dp-empty{font-size:0.84rem;color:var(--text-sub);padding:10px 0;text-align:center;}
     .dp-summary{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 16px;}
     .dp-acc{margin-bottom:14px;}
     .dp-acc-head{width:100%;border:none;background:transparent;padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:0.88rem;font-weight:800;color:var(--text);cursor:pointer;text-align:left;}
@@ -312,12 +315,13 @@ function renderDetailPanel(org, notices){
 
   var h='<button class="dp-close" onclick="closeDetail()">✕</button>';
   h+='<div class="dp-header"><div class="dp-name">'+icon+' '+esc(org.name)+'</div>';
-  h+='<div class="dp-type"><span class="badge '+(isSchool?'badge-blue':'badge-green')+'">'+tl+'</span></div></div>';
+  h+='<div class="dp-type"><span class="badge '+(isSchool?'badge-blue':'badge-green')+'">'+tl+'</span>'+(org.jurisdiction?' <span class="badge badge-orange">'+esc(org.jurisdiction)+'</span>':'')+'</div></div>';
 
   h+='<div class="dp-summary">';
   h+='<span class="badge badge-blue">📋 프로그램 '+progs.length+'개</span>';
   if(org.openCount>0)h+='<span class="badge badge-green">🟢 모집중 '+org.openCount+'개</span>';
   if(org.transport==='있음')h+='<span class="badge badge-orange">🚌 통학버스</span>';
+  if(vp(org.routeMapUrl))h+='<span class="badge badge-green">🗺️ 노선도</span>';
   h+='</div>';
 
   h+='<div class="dp-section"><div class="dp-section-title">📞 문의 안내</div><div class="dp-grid">';
@@ -337,7 +341,9 @@ function renderDetailPanel(org, notices){
   var noticeHtml='';
   if(!notices.length) noticeHtml='<div class="dp-empty">등록된 공지사항이 없습니다.</div>';
   else notices.forEach(function(n){
-    noticeHtml+='<div class="notice-card"><div class="notice-title">'+esc(n.title)+'</div><div class="notice-date">'+esc(n.date)+'</div>'+(n.content?'<div class="notice-content">'+esc(n.content)+'</div>':'')+'</div>';
+    var isNew=false;
+    try{var diff=Math.floor((new Date()-new Date(n.date))/86400000);isNew=diff>=0&&diff<=7;}catch(e){}
+    noticeHtml+='<div class="notice-card"><div class="notice-title">'+esc(n.title)+(isNew?' <span class="badge badge-green">NEW</span>':'')+'</div><div class="notice-date">'+esc(n.date)+'</div>'+(n.content?'<div class="notice-content">'+esc(n.content)+'</div>':'')+'</div>';
   });
   h+=buildAccordion('notice','📢 공지사항',noticeHtml,true);
 
@@ -377,6 +383,10 @@ function renderDetailPanel(org, notices){
   var transportHtml='';
   if(org.transport==='있음'){
     transportHtml='<div class="dp-transport yes">🚌 <strong>통학버스 운영</strong><br>'+(vp(org.transportDetail)||'상세 정보는 기관에 문의해주세요.')+'</div>';
+    if(vp(org.routeMapUrl)){
+      transportHtml+='<a class="btn-route" href="'+esc(org.routeMapUrl)+'" target="_blank" rel="noopener noreferrer">🗺️ 통학 노선도 보기</a>';
+      if(vp(org.routeMapNote)) transportHtml+='<div class="route-note">'+esc(org.routeMapNote)+'</div>';
+    }
   }else{
     transportHtml='<div class="dp-transport no">🚌 통학버스 <strong>미운영</strong><br>※ 학부모 직접 등·하원 필요</div>';
   }
@@ -391,9 +401,8 @@ function renderDetailPanel(org, notices){
   infoHtml+='</div>';
   h+=buildAccordion('info','🕐 운영 정보',infoHtml,false);
 
-  if(vp(org.intro)){
-    h+=buildAccordion('intro','💬 기관 소개','<div class="dp-prog" style="margin-bottom:0;">'+esc(org.intro)+'</div>',false);
-  }
+  var introHtml=vp(org.intro)?'<div class="dp-prog" style="margin-bottom:0;">'+esc(org.intro)+'</div>':'<div class="dp-empty">기관 소개 정보가 아직 없습니다.</div>';
+  h+=buildAccordion('intro','💬 기관 소개',introHtml,false);
 
   panel.innerHTML=h;
   panel.className='detail-panel show';
