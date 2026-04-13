@@ -54,7 +54,6 @@
     .dp-transport{padding:10px;border-radius:8px;font-size:0.85rem;margin-top:4px;}
     .dp-transport.yes{background:rgba(0,184,148,0.08);color:var(--green-deep);}
     .dp-transport.no{background:var(--bg);color:var(--text-sub);}
-    .dp-progs{margin-top:8px;}
     .dp-prog{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:0.82rem;line-height:1.6;}
     .dp-prog-name{font-weight:700;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
     .dp-contact-btns{display:flex;gap:8px;margin-top:8px;}
@@ -98,7 +97,7 @@
 
 <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=292ea33281f52f28bb790bd726a77ffb&libraries=services"></script>
 <script>
-var GAS_URL='https://script.google.com/macros/s/AKfycbyTLRphhpEtXFRXbPGTEqFtp-MGCm0LDoiIWzRC_zc46ikzqDHgTEpUe-8sW1VmuDl_/exec';
+var GAS_URL='https://script.google.com/macros/s/AKfycbxi6ndXXs64Xj5A8e1pAFKh8x-leghvDzjtXYzlsPV8faEpekiA1XDQIVb8a54TVZd5/exec';
 var mapOrgs=[];
 var kakaoMap=null;
 var allMarkers=[];
@@ -114,13 +113,11 @@ document.addEventListener('DOMContentLoaded',function(){
   loadMapData();
 });
 
-// ★ 핵심 변경: 단일 fetch로 기관+프로그램 모두 로드
 function loadMapData(){
   fetch(GAS_URL+'?action=getMapData')
     .then(function(r){return r.json();})
     .then(function(d){
       mapOrgs=d||[];
-      // 디버그: 프로그램 연동 상태 확인
       var debugInfo=[];
       mapOrgs.forEach(function(o){
         var pCount=(o.programs||[]).length;
@@ -139,9 +136,6 @@ function loadMapData(){
     });
 }
 
-// ==========================================
-// 필터
-// ==========================================
 function renderFilters(){
   var fs=[{v:'전체',l:'전체'},{v:'학교밖 늘봄',l:'📚 학교밖 늘봄'},{v:'지역사회 돌봄',l:'🏠 지역사회 돌봄'}];
   var h='';
@@ -178,9 +172,6 @@ function getFiltered(){
   });
 }
 
-// ==========================================
-// 카카오맵
-// ==========================================
 function initMap(){
   document.getElementById('map-loading').style.display='none';
   var center=new kakao.maps.LatLng(35.3741,127.1373);
@@ -246,9 +237,6 @@ function placeMarkers(){
   });
 }
 
-// ==========================================
-// 상세 패널
-// ==========================================
 function buildAccordion(id,title,bodyHtml,isOpen){
   return '<div class="dp-acc'+(isOpen?' open':'')+'" id="dp-acc-'+id+'">'
     +'<button type="button" class="dp-acc-head" onclick="toggleAccordion(\''+id+'\')">'
@@ -265,8 +253,6 @@ function showDetail(orgName){
   var org=mapOrgs.find(function(o){return o.name===orgName;});
   if(!org)return;
   selectedOrg=orgName;
-
-  // 공지사항 로드 후 패널 렌더
   fetchNotices(orgName).then(function(notices){
     renderDetailPanel(org,notices);
   });
@@ -285,8 +271,6 @@ function renderDetailPanel(org,notices){
   var isSchool=String(org.type||'').trim()==='학교밖 늘봄';
   var icon=isSchool?'📚':'🏠';
   var tl=isSchool?'학교밖 늘봄 기관':'지역사회 돌봄 기관';
-
-  // ★ 프로그램을 org.programs에서 직접 가져옴
   var progs=org.programs||[];
 
   var h='<button class="dp-close" onclick="closeDetail()">✕</button>';
@@ -300,7 +284,6 @@ function renderDetailPanel(org,notices){
   if(vp(org.routeMapUrl))h+='<span class="badge badge-green">🗺️ 노선도</span>';
   h+='</div>';
 
-  // 문의 안내
   h+='<div class="dp-section"><div class="dp-section-title">📞 문의 안내</div><div class="dp-grid">';
   h+='<div class="dp-label">📞 대표연락처</div><div class="dp-value">'+(vp(org.tel)||'<span class="dp-value pending">확인 중</span>')+'</div>';
   h+='<div class="dp-label">👤 담당자</div><div class="dp-value">'+(vp(org.managerName)||'<span class="dp-value pending">확인 중</span>')+'</div>';
@@ -315,7 +298,6 @@ function renderDetailPanel(org,notices){
   }
   h+='</div>';
 
-  // 공지사항 아코디언
   var noticeHtml='';
   if(!notices||!notices.length) noticeHtml='<div class="dp-empty">등록된 공지사항이 없습니다.</div>';
   else notices.forEach(function(n){
@@ -325,12 +307,10 @@ function renderDetailPanel(org,notices){
   });
   h+=buildAccordion('notice','📢 공지사항',noticeHtml,true);
 
-  // ★ 프로그램 아코디언 - org.programs 직접 사용
   var programHtml='';
   if(progs.length===0){
     programHtml='<div class="dp-empty">등록된 프로그램이 없습니다.</div>';
   }else{
-    // 프로그램명 기준 그룹핑 (같은 이름 다른 요일 통합)
     var grouped={};
     progs.forEach(function(p){
       var key=p.name||'이름 미정';
@@ -361,7 +341,6 @@ function renderDetailPanel(org,notices){
   }
   h+=buildAccordion('program','📋 프로그램 ('+progs.length+'개)',programHtml,true);
 
-  // 통학 안내 아코디언
   var transportHtml='';
   if(org.transport==='있음'){
     transportHtml='<div class="dp-transport yes">🚌 <strong>통학버스 운영</strong><br>'+(vp(org.transportDetail)||'상세 정보는 기관에 문의해주세요.')+'</div>';
@@ -374,7 +353,6 @@ function renderDetailPanel(org,notices){
   }
   h+=buildAccordion('transport','🚌 통학 안내',transportHtml,false);
 
-  // 운영 정보 아코디언
   var infoHtml='<div class="dp-grid">';
   infoHtml+='<div class="dp-label">🕐 시간</div><div class="dp-value">'+(vp(org.hours)||'<span class="dp-value pending">확인 중</span>')+'</div>';
   infoHtml+='<div class="dp-label">📍 위치</div><div class="dp-value">'+(vp(org.address)||'<span class="dp-value pending">확인 중</span>');
@@ -384,7 +362,6 @@ function renderDetailPanel(org,notices){
   infoHtml+='</div>';
   h+=buildAccordion('info','🕐 운영 정보',infoHtml,false);
 
-  // 기관 소개 아코디언
   var introHtml=vp(org.intro)?'<div class="dp-prog" style="margin-bottom:0;">'+esc(org.intro)+'</div>':'<div class="dp-empty">기관 소개 정보가 아직 없습니다.</div>';
   h+=buildAccordion('intro','💬 기관 소개',introHtml,false);
 
@@ -399,9 +376,6 @@ function closeDetail(){
   selectedOrg=null;renderOrgList();
 }
 
-// ==========================================
-// 기관 목록
-// ==========================================
 function renderOrgList(){
   var filtered=getFiltered();
   var list=document.getElementById('org-list');
@@ -444,9 +418,6 @@ function onOrgCardClick(name){
   showDetail(name);
 }
 
-// ==========================================
-// 유틸리티
-// ==========================================
 function handleCall(num){
   var digits=String(num).replace(/[^0-9]/g,'');
   if(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent))window.location.href='tel:'+digits;
