@@ -100,6 +100,8 @@
 var GAS_URL='https://script.google.com/macros/s/AKfycbyTLRphhpEtXFRXbPGTEqFtp-MGCm0LDoiIWzRC_zc46ikzqDHgTEpUe-8sW1VmuDl_/exec';
 var mapOrgs=[];
 var mapProgs={};
+var mapProgsByOrgId={};
+var mapProgsByOrgName={};
 var kakaoMap=null;
 var allMarkers=[];
 var currentFilter='전체';
@@ -128,12 +130,23 @@ function loadAllData(){
   fetch(GAS_URL+'?action=getPublicAllProgs')
     .then(function(r){return r.json();})
     .then(function(d){
-      // 기관별로 묶기
+      mapProgs={};
+      mapProgsByOrgId={};
+      mapProgsByOrgName={};
       (d||[]).forEach(function(p){
-        var org=String(p.orgName||'').trim();
-        if(!mapProgs[org])mapProgs[org]=[];
-        mapProgs[org].push(p);
+        var orgId=normKey(p.orgId);
+        var orgName=normKey(p.orgName);
+        if(orgId){
+          if(!mapProgsByOrgId[orgId]) mapProgsByOrgId[orgId]=[];
+          mapProgsByOrgId[orgId].push(p);
+        }
+        if(orgName){
+          if(!mapProgsByOrgName[orgName]) mapProgsByOrgName[orgName]=[];
+          mapProgsByOrgName[orgName].push(p);
+        }
       });
+      // 기존 참조 호환용: 기관명 맵 유지
+      mapProgs = mapProgsByOrgName;
       check();
     })
     .catch(function(){check();});
@@ -311,7 +324,7 @@ function renderDetailPanel(org, notices){
   var isSchool=String(org.type||'').trim()==='학교밖 늘봄';
   var icon=isSchool?'📚':'🏠';
   var tl=isSchool?'학교밖 늘봄 기관':'지역사회 돌봄 기관';
-  var progs=mapProgs[org.name]||[];
+  var progs=getOrgPrograms(org);
 
   var h='<button class="dp-close" onclick="closeDetail()">✕</button>';
   h+='<div class="dp-header"><div class="dp-name">'+icon+' '+esc(org.name)+'</div>';
@@ -429,6 +442,13 @@ function handleSms(num){
 }
 
 function vp(v){return(v&&String(v).trim()!=='')?String(v).trim():'';}
+function normKey(v){return vp(v).replace(/\s+/g,' ').trim();}
+function getOrgPrograms(org){
+  if(!org) return [];
+  var byId = org.orgId ? (mapProgsByOrgId[normKey(org.orgId)] || []) : [];
+  if(byId.length) return byId;
+  return mapProgsByOrgName[normKey(org.name)] || [];
+}
 
 // ==========================================
 // 기관 목록
