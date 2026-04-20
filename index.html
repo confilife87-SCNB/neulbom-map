@@ -282,6 +282,8 @@ function renderDetailPanel(org,notices){
   if(org.openCount>0)h+='<span class="badge badge-green">🟢 모집중 '+org.openCount+'개</span>';
   if(org.transport==='있음')h+='<span class="badge badge-orange">🚌 통학버스</span>';
   if(vp(org.routeMapUrl))h+='<span class="badge badge-green">🗺️ 노선도</span>';
+  // ★ 수정일시 뱃지 추가
+  if(vp(org.updatedAt))h+='<span class="badge badge-gray" style="background:rgba(99,110,114,0.1);color:var(--text-sub);">🕐 '+esc(org.updatedAt.substring(0,10))+'</span>';
   h+='</div>';
 
   h+='<div class="dp-section"><div class="dp-section-title">📞 문의 안내</div><div class="dp-grid">';
@@ -390,11 +392,18 @@ function renderOrgList(){
     var isSelected=selectedOrg===o.name;
     var pCount=(o.programs||[]).length;
 
+    // ★ 수정일시 표시 텍스트 생성
+    var updatedLabel='';
+    if(vp(o.updatedAt)){
+      updatedLabel=' · <span style="color:var(--teal-deep);font-size:0.72rem;">🕐 '+esc(o.updatedAt.substring(0,10))+'</span>';
+    }
+
     h+='<div class="org-card '+tc+(isSelected?' selected':'')+'" onclick="onOrgCardClick(\''+esc(o.name).replace(/'/g,"\\'")+'\')">';
     h+='<div class="org-name">'+icon+' '+esc(o.name)+'</div>';
     h+='<div class="org-info">'+(vp(o.address)||'<i style="color:var(--orange-deep);">주소 확인 중</i>');
     h+=' · 프로그램 '+pCount+'개';
     if(o.openCount>0)h+=' · <span style="color:var(--green-deep);font-weight:700;">모집중 '+o.openCount+'개</span>';
+    h+=updatedLabel; // ★ 수정일시 추가
     h+='</div>';
     h+='<div class="org-tags"><span class="badge '+tb+'">'+tl+'</span>';
     if(o.transport==='있음')h+='<span class="badge badge-orange">🚌 통학</span>';
