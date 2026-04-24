@@ -88,6 +88,28 @@
   <div class="debug-bar" id="debug-bar"></div>
   <div class="filter-bar" id="filter-bar"></div>
   <div class="filter-subbar" id="filter-subbar"></div>
+
+  <!-- ★ 검색창 추가 -->
+  <div style="margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;background:#fff;border:2px solid #e9ecef;border-radius:10px;padding:9px 14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:border-color 0.2s;" id="map-search-box">
+      <span style="font-size:1.1rem;color:#636e72;flex-shrink:0;">🔍</span>
+      <input
+        type="text"
+        id="map-search-input"
+        placeholder="기관명 검색..."
+        oninput="onMapSearch()"
+        style="flex:1;border:none;background:transparent;font-size:0.9rem;color:#2d3436;outline:none;padding:0;"
+      >
+      <button
+        id="map-search-clear"
+        onclick="clearMapSearch()"
+        style="display:none;background:#e9ecef;border:none;color:#636e72;font-size:0.8rem;cursor:pointer;border-radius:50%;width:22px;height:22px;align-items:center;justify-content:center;flex-shrink:0;"
+      >✕</button>
+    </div>
+  </div>
+  <div id="map-search-result" style="display:none;font-size:0.78rem;color:#636e72;margin-bottom:6px;margin-top:-4px;"></div>
+  <!-- ★ 여기까지 -->
+
   <div class="map-wrap" id="map-container">
     <div class="loading" id="map-loading"><div class="spinner"></div><div class="load-text">지도 불러오는 중...</div></div>
   </div>
@@ -104,6 +126,7 @@ var allMarkers=[];
 var currentFilter='전체';
 var onlyOpen=false;
 var onlyTransport=false;
+var mapSearchQuery='';  // ★ 추가
 var currentOpenInfo=null;
 var selectedOrg=null;
 var noticeCache={};
@@ -155,23 +178,25 @@ function renderSubFilters(){
 
 function setFilter(f){
   currentFilter=f;renderFilters();closeDetail();clearMarkers();placeMarkers();renderOrgList();
+  applySearch();
 }
 function toggleOpenOnly(){
   onlyOpen=!onlyOpen;renderFilters();closeDetail();clearMarkers();placeMarkers();renderOrgList();
+  applySearch();
 }
 function toggleTransportOnly(){
   onlyTransport=!onlyTransport;renderFilters();closeDetail();clearMarkers();placeMarkers();renderOrgList();
+  applySearch();
 }
-
 function getFiltered(){
   return mapOrgs.filter(function(o){
     if(currentFilter!=='전체'&&String(o.type||'').trim()!==currentFilter) return false;
     if(onlyOpen&&(parseInt(o.openCount,10)||0)<=0) return false;
     if(onlyTransport&&String(o.transport||'').trim()!=='있음') return false;
+    if(mapSearchQuery&&!matchSearch(o.name,mapSearchQuery)) return false;  // ★ 추가
     return true;
   });
 }
-
 function initMap(){
   document.getElementById('map-loading').style.display='none';
   var center=new kakao.maps.LatLng(35.3741,127.1373);
@@ -436,6 +461,70 @@ function handleSms(num){
   var digits=String(num).replace(/[^0-9]/g,'');
   if(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent))window.location.href='sms:'+digits;
   else{navigator.clipboard.writeText(num);alert('📱 '+num+' 복사되었습니다!');}
+}
+// ★ 검색 함수 추가
+var CHOSUNG=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+
+function getChosung(str){
+  var result='';
+  for(var i=0;i<str.length;i++){
+    var code=str.charCodeAt(i)-44032;
+    if(code>=0&&code<=11171) result+=CHOSUNG[Math.floor(code/588)];
+    else result+=str[i];
+  }
+  return result;
+}
+
+function matchSearch(text,query){
+  if(!query) return true;
+  var t=String(text||'').toLowerCase();
+  var q=query.toLowerCase().trim();
+  if(t.indexOf(q)!==-1) return true;
+  if(/^[ㄱ-ㅎ]+$/.test(q)) return getChosung(t).indexOf(q)!==-1;
+  return false;
+}
+
+function onMapSearch(){
+  var input=document.getElementById('map-search-input');
+  var clear=document.getElementById('map-search-clear');
+  mapSearchQuery=input?input.value.trim():'';
+  if(clear) clear.style.display=mapSearchQuery?'flex':'none';
+  applySearch();
+}
+
+function clearMapSearch(){
+  var input=document.getElementById('map-search-input');
+  var clear=document.getElementById('map-search-clear');
+  if(input) input.value='';
+  if(clear) clear.style.display='none';
+  mapSearchQuery='';
+  applySearch();
+}
+
+function applySearch(){
+  // 마커 필터링
+  if(kakaoMap){
+    allMarkers.forEach(function(m){
+      var show=true;
+      if(currentFilter!=='전체'&&String(m.org.type||'').trim()!==currentFilter) show=false;
+      if(onlyOpen&&(parseInt(m.org.openCount,10)||0)<=0) show=false;
+      if(onlyTransport&&String(m.org.transport||'').trim()!=='있음') show=false;
+      if(mapSearchQuery&&!matchSearch(m.org.name,mapSearchQuery)) show=false;
+      m.marker.setMap(show?kakaoMap:null);
+    });
+  }
+
+  // 결과 수 표시
+  var resultEl=document.getElementById('map-search-result');
+  var filtered=getFiltered();
+  if(mapSearchQuery||onlyOpen||onlyTransport){
+    resultEl.innerHTML='필터 결과: <span style="color:#00cec9;font-weight:700;">'+filtered.length+'곳</span>';
+    resultEl.style.display='block';
+  } else {
+    resultEl.style.display='none';
+  }
+
+  renderOrgList();
 }
 function vp(v){return(v&&String(v).trim()!=='')?String(v).trim():'';}
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
